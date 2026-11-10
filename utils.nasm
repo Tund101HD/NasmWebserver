@@ -16,7 +16,7 @@ section .text
 ;       r13 - Message to write
 ;       r14 - Message length to write
 ;
-; Clobbers: rax , rdx , rdi
+; Clobbers: rax, rdx, rdi, rcx, r11 (rcx/r11 clobbered by syscall)
 ;
 write_to_console:
     push rbp
@@ -38,21 +38,20 @@ write_to_console:
 
 ; Write a simple inline space
 ; Operands: None
-; Clobbers: rax, rdi, rdx
+; Clobbers: rax, rdi, rdx, rcx, r11
 ; Result:   None
 ; Flags:    None
-; Note:     Uses wirte_to_console
 write_space_inline:
     push rbp
     mov rbp, rsp
     push r13
     push r14
 
-    push ' '                        ; Push the literal space character onto the stack memory
+    push ' '
     mov r13, rsp
     mov r14, 1
     call write_to_console
-    pop rax                         ; clean up stack into rax
+    pop rax
 
     pop r14
     pop r13
@@ -60,23 +59,22 @@ write_space_inline:
     pop rbp
     ret
 
-; Write a simple inline space
+; Write a newline character
 ; Operands: None
-; Clobbers: rax, rdi, rdx
+; Clobbers: rax, rdi, rdx, rcx, r11
 ; Result:   None
 ; Flags:    None
-; Note:     Uses wirte_to_console
 write_new_line:
     push rbp
     mov rbp, rsp
     push r13
     push r14
 
-    push 10                        ; New line code
+    push 10
     mov r13, rsp
     mov r14, 1
     call write_to_console
-    pop rax                         ; clean up stack into rax
+    pop rax
 
     pop r14
     pop r13
@@ -94,7 +92,7 @@ write_new_line:
 ; Result:
 ;       rax - Length of the text input
 ;       your_buffer - Text input by the user
-; Clobbers: rax , rdx , rdi
+; Clobbers: rax, rdx, rdi, rcx, r11
 read_from_console:
     push rbp
     mov rbp, rsp
@@ -125,7 +123,7 @@ atoi:
     push rbp
     mov rbp, rsp
 
-    dec r14                     ; Subtract 1 from length to ignore the 0x0A newline character
+    dec r14
     xor rax, rax
     xor r9, r9
 
@@ -133,15 +131,11 @@ atoi:
     cmp r9, r14
     jge .loop_end
 
+    movzx rcx, byte [r13 + r9]
+    sub rcx, '0'
 
-    movzx rcx, byte [r13 + r9]  ; Read 1 byte at (Buffer_Address + Index)
-
-
-    sub rcx, '0'                ; Subtract ASCII '0' (0x30). e.g., '8' (0x38) - '0' (0x30) = 8
-
-
-    imul rax, 10                ; Multiply running total by 10
-    add rax, rcx                ; Add the new integer digit to the total
+    imul rax, 10
+    add rax, rcx
     inc r9
     jmp .loop_start
 
@@ -163,8 +157,8 @@ itoa:
     push rbp
     mov rbp, rsp
 
-    mov rcx, 10         ; We will divide by 10 to extract digits
-    xor r8, r8          ; r8 will be our digit counter. Set to 0.
+    mov rcx, 10
+    xor r8, r8
 
 .extract_digits:
     xor rdx, rdx
@@ -176,19 +170,18 @@ itoa:
 
     test rax, rax
     jnz .extract_digits
-    mov r9, r8          ; Save the total digit count so we can return it later
+    mov r9, r8
 
 .write_string:
-    pop rdx             ; Pop the character off the stack
-    mov byte [rdi], dl  ; Write the 1-byte character into the buffer
-    inc rdi             ; Move the buffer pointer forward 1 byte
-    dec r8              ; Decrement our digit counter
-    jnz .write_string   ; Keep popping until we've written all digits
+    pop rdx
+    mov byte [rdi], dl
+    inc rdi
+    dec r8
+    jnz .write_string
 
-    ; Null-terminate the string so it's safe to use with other functions
     mov byte [rdi], 0x00
 
-    mov rax, r9         ; Return the total length of the string in rax
+    mov rax, r9
 
     mov rsp, rbp
     pop rbp
